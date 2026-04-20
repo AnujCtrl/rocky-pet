@@ -11,8 +11,19 @@ from rocky_pet.engine import PetEngine, State
 from rocky_pet.panel_widget import PanelWidget
 from rocky_pet.rocky_widget import RockyWidget
 from rocky_pet.settings import SettingsManager
-from rocky_pet.sprites import AnimState
+from rocky_pet.sprites import AnimState, Direction
 from rocky_pet.tray import SettingsDialog, TrayManager
+
+
+RUN_FPS = 10
+IDLE_FPS = 6
+
+EMOTION_FPS = {
+    "happy": 10,
+    "excited": 12,
+    "curious": 6,
+    "sad": 3,
+}
 
 
 class RockyApp:
@@ -30,6 +41,7 @@ class RockyApp:
         self.panel = PanelWidget()
         self.tray = TrayManager()
 
+        self._current_direction = Direction.SE
         self._current_question: Question | None = None
         self._sound_effect = None
         self._setup_timers()
@@ -59,13 +71,17 @@ class RockyApp:
         if self.settings.first_run:
             self._start_intro()
         else:
+            self._current_direction = self._direction_from_velocity(
+                self.engine.vx, self.engine.vy
+            )
+            self.rocky.set_anim(AnimState.RUNNING, self._current_direction, RUN_FPS)
             self.engine.set_state(State.ROAMING)
             self._tick_timer.start()
             self._interaction_timer.start()
 
     def _start_intro(self):
         self.engine.set_state(State.INTRO)
-        self.rocky.set_anim_state(AnimState.HAPPY)
+        self.rocky.set_anim(AnimState.IDLE, self._current_direction, EMOTION_FPS["happy"])
         self.rocky.move_to(self.engine.x, self.engine.y)
         self.bubble.show_near(
             self.engine.x, self.engine.y - 40,
@@ -83,22 +99,33 @@ class RockyApp:
 
     def _on_tick(self):
         self.engine.tick()
+        if self.engine.state == State.ROAMING:
+            new_dir = self._direction_from_velocity(self.engine.vx, self.engine.vy)
+            if new_dir != self._current_direction:
+                self._current_direction = new_dir
+                self.rocky.set_anim(AnimState.RUNNING, new_dir, RUN_FPS)
         self.rocky.advance_frame()
         self.rocky.move_to(self.engine.x, self.engine.y)
 
+    def _direction_from_velocity(self, vx: int, vy: int) -> Direction:
+        if vx >= 0 and vy < 0:
+            return Direction.NE
+        if vx >= 0 and vy > 0:
+            return Direction.SE
+        if vx < 0 and vy > 0:
+            return Direction.SW
+        return Direction.NW
+
     def _on_state_changed(self, state: State):
-        anim_map = {
-            State.ROAMING: AnimState.WALK_RIGHT,
-            State.IDLE: AnimState.IDLE,
-            State.ASKING: AnimState.CURIOUS,
-            State.REACTING: AnimState.HAPPY,
-            State.QUOTING: AnimState.HAPPY,
-            State.INTRO: AnimState.HAPPY,
-        }
-        anim = anim_map.get(state, AnimState.IDLE)
-        if state == State.ROAMING and self.engine.vx < 0:
-            anim = AnimState.WALK_LEFT
-        self.rocky.set_anim_state(anim)
+        if state == State.ROAMING:
+            self._current_direction = self._direction_from_velocity(
+                self.engine.vx, self.engine.vy
+            )
+            self.rocky.set_anim(AnimState.RUNNING, self._current_direction, RUN_FPS)
+        elif state in (State.IDLE, State.ASKING):
+            self.rocky.set_anim(AnimState.IDLE, self._current_direction, IDLE_FPS)
+        elif state == State.INTRO:
+            self.rocky.set_anim(AnimState.IDLE, self._current_direction, EMOTION_FPS["happy"])
         if state not in (State.ASKING, State.REACTING):
             self.panel.hide()
 
@@ -158,11 +185,8 @@ class RockyApp:
     def _show_quote(self):
         quote = self.content.get_random_quote()
         self.engine.set_state(State.QUOTING)
-        emotion_to_anim = {
-            "happy": AnimState.HAPPY, "curious": AnimState.CURIOUS,
-            "excited": AnimState.EXCITED, "sad": AnimState.SAD,
-        }
-        self.rocky.set_anim_state(emotion_to_anim.get(quote.emotion, AnimState.HAPPY))
+        fps = EMOTION_FPS.get(quote.emotion, IDLE_FPS)
+        self.rocky.set_anim(AnimState.IDLE, self._current_direction, fps)
         self._play_emotion_sound(quote.emotion)
         self.bubble.show_near(
             self.engine.x, self.engine.y - 40, quote.text, duration_ms=5000,
@@ -200,11 +224,8 @@ class RockyApp:
 
     def _react(self, emotion: str, text: str):
         self.engine.set_state(State.REACTING)
-        emotion_to_anim = {
-            "happy": AnimState.HAPPY, "excited": AnimState.EXCITED,
-            "curious": AnimState.CURIOUS, "sad": AnimState.SAD,
-        }
-        self.rocky.set_anim_state(emotion_to_anim.get(emotion, AnimState.HAPPY))
+        fps = EMOTION_FPS.get(emotion, IDLE_FPS)
+        self.rocky.set_anim(AnimState.IDLE, self._current_direction, fps)
         self._play_emotion_sound(emotion)
         self.bubble.show_near(
             self.engine.x, self.engine.y - 40, text, duration_ms=4000,

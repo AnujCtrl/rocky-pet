@@ -4,7 +4,10 @@ a = Analysis(
     ['src/rocky_pet/main.py'],
     pathex=['src'],
     binaries=[],
-    datas=[],
+    datas=[
+        ('src/rocky_pet/assets/idle.png', 'rocky_pet/assets'),
+        ('src/rocky_pet/assets/run.png', 'rocky_pet/assets'),
+    ],
     hiddenimports=[
         'rocky_pet', 'rocky_pet.app', 'rocky_pet.audio',
         'rocky_pet.bubble_widget', 'rocky_pet.content',
