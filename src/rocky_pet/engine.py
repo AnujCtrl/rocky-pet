@@ -25,7 +25,7 @@ class PetEngine(QObject):
         self.x = screen_width // 2
         self.y = screen_height // 2
         self.vx = random.choice([-2, -1, 1, 2])
-        self.vy = random.choice([-1, 1])
+        self.vy = random.choice([-1, 1, -2, 2])
         self._idle_counter = 0
         self._idle_threshold = random.randint(100, 300)
         self._idle_duration = 0
@@ -84,6 +84,6 @@ class PetEngine(QObject):
 
         if random.random() < 0.01:
             self.vx = random.choice([-2, -1, 1, 2])
-            self.vy = random.choice([-1, 0, 1])
+            self.vy = random.choice([-1, 1, -2, 2])
 
         self.position_changed.emit(self.x, self.y)
