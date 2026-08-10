@@ -75,7 +75,7 @@ class PanelWidget(QWidget):
         self._hint_label.setStyleSheet("color: #8B7355;")
         self._layout.addWidget(self._hint_label)
 
-        self.setFixedWidth(self.PANEL_WIDTH)
+        self.setMinimumWidth(self.PANEL_WIDTH)
         self.hide()
 
     def _clear_items(self):
